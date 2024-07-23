@@ -29,12 +29,13 @@ class Critic():
         observations = torch.squeeze(observations)
         return self.network(observations)
 
-    def update(self, observations, rewards):
+    def update(self, observations, rewards, dones):
         self.opt.zero_grad()
         outputs = self.forward(observations)
         # GAE: A(s,a) = r + yV(s') - V(s)
         targets = outputs.detach().clone()
         targets = torch.cat((targets[1:], torch.tensor([[0.0]], dtype=torch.float32))) * self.discount
+        targets *= dones # apply dones mask so episode doesnt affect earlier one
         targets += rewards
         loss = self.loss_fn(outputs, targets)
         loss.backward()
@@ -112,8 +113,8 @@ class A2C_trainer():
     def train(self, epochs, ep_len, verbose=True):
         for batch in range(epochs//self.batch_size):
             self.opt.zero_grad()
-            # [ state, action, action_probability, r ]
-            hist = [[],[],[],[]]
+            # [ state, action, action_probability, r, done ]
+            hist = [[],[],[],[],[]]
             # play episode
             for ep in range(self.batch_size):
                 [x.extend(y) for x,y in zip(hist,self.run_episode(ep_len))]
@@ -122,7 +123,8 @@ class A2C_trainer():
             # critic update
             state_stack = torch.stack(hist[0], dim=0)
             rewards_stack = torch.tensor(hist[3]).reshape(-1,1)
-            advantages = self.critic.update(state_stack, rewards_stack).squeeze()
+            dones_stack = torch.tensor([hist[4]]).reshape(-1,1)
+            advantages = self.critic.update(state_stack, rewards_stack, dones_stack).squeeze()
 
             # normalize advantages
             lst = advantages.numpy()
@@ -131,21 +133,21 @@ class A2C_trainer():
 
             # policy gradient
             for info in list(zip(*hist)):
-                state, action, action_probability, r = info
+                state, action, action_probability, r, done = info
                 self.actor.learn(state, action, action_probability, r, scale=1/len(hist[0]))
             self.opt.step()
                  
             if verbose: print(f" test score: {round(self.test(ep_len,display=False),3)}")
 
     def run_episode(self, ep_len):
-        # [ state, action, action_probability, r ]
-        hist = [[],[],[],[]]
+        # [ state, action, action_probability, r, done ]
+        hist = [[],[],[],[],[]]
         state, valid_actions = self.env.resetEnv()
         done = False
         for step in range(ep_len):
             action, action_probabilities = self.actor.get_action(state, valid_actions)
             next_state, r, valid_actions, done = self.env.nextFrame(action)
-            [x.append(y) for x,y in zip(hist,[self.actor.conv(state), action, action_probabilities[action], r])]
+            [x.append(y) for x,y in zip(hist,[self.actor.conv(state), action, action_probabilities[action], r, int(not done)])]
             if done: break
             state = next_state
 
