@@ -34,7 +34,7 @@ class Critic():
         outputs = self.forward(observations)
         # GAE: A(s,a) = r + yV(s') - V(s)
         targets = outputs.detach().clone()
-        targets = torch.cat((targets[1:], torch.tensor([[0.0]], dtype=torch.float32))) * discount
+        targets = torch.cat((targets[1:], torch.tensor([[0.0]], dtype=torch.float32))) * self.discount
         targets += rewards
         loss = self.loss_fn(outputs, targets)
         loss.backward()
