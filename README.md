@@ -12,5 +12,9 @@ A2C (range 58112 games)
 A2C with target network (range 77056 games)      
 <img width="455" alt="image" src="https://github.com/user-attachments/assets/ecf87cfb-6533-4da1-97da-26ac25f3f9db">
 
+PPO (range 1108 games)    
+<img width="455" alt="image" src="https://github.com/user-attachments/assets/3f53c4ae-6cee-4c5c-b57e-fbb050ac73e5">
+
+
 
 It's possible that the more complicated algorithms perform worse because cartpole is a very simple environment.
